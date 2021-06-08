@@ -22,25 +22,26 @@ program define did2s, eclass
 
     *-> First Stage 
 
-        fvrevar `first_stage'
+        fvrevar `first_stage' if `touse' & `treat_var' == 0
         local full_first_stage `r(varlist)'
 
         if ("`absorb'" != "") {
             * First stage regression (with clustering and weights)
-            areg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, absorb(`absorb') vce(cluster `cluster')
+            qui areg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, absorb(`absorb') vce(cluster `cluster')
             tempvar du dummies adj
             * areg does not save absorbed dummies out of sample, do that manually
-            predict double `du', dresiduals
+            predict double `du' if `touse', dresiduals
             egen double `dummies' = mean(`du') if `touse', by(`absorb')
-            generate double `adj' = `du' - `dummies'
+            generate double `adj' = `du' - `dummies' if `touse'
+            * FIXME: adjust standard errors
         }
         else {
             * First stage regression (with clustering and weights)
-            reg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, nocons vce(cluster `cluster')
+            qui reg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, vce(cluster `cluster')
 
             * Residualize outcome variable
             tempvar adj
-            predict double `adj', residual
+            predict double `adj' if `touse', residual
         }
         **-> Get names of non-omitted variables
             * https://www.stata.com/support/faqs/programming/factor-variable-support/
@@ -67,11 +68,11 @@ program define did2s, eclass
 
         **-> Create first_u, with 0s in row where D_it = 1
         tempvar first_u
-        gen `first_u' = `adj' * (1 - `treat_var')
+        qui gen `first_u' = `adj' * (1 - `treat_var') if `touse'
 
     *-> Second Stage
 
-        fvrevar `treat_formula'
+        fvrevar `treat_formula' if `touse'
         local full_second_stage `r(varlist)'
 
         * Second stage regression
@@ -104,7 +105,7 @@ program define did2s, eclass
 
         **-> Create first_u, with 0s in row where D_it = 1
         tempvar second_u
-        predict double `second_u', residual 
+        predict double `second_u' if `touse', residual 
             
 
     *-> Standard Error Adjustment
