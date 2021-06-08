@@ -5,7 +5,7 @@ program define did2s, eclass
     *-> Setup
 
         version 13
-        syntax varlist(min=1 max=1 numeric) [if] [in] [aw fw iw pw], first_stage(varlist fv) treat_formula(varlist fv) treat_var(varname) cluster(varname)
+        syntax varlist(min=1 max=1 numeric) [if] [in] [aw fw iw pw], first_stage(varlist fv) [absorb(varname)] treat_formula(varlist fv) treat_var(varname) cluster(varname)
 
         * to use
         tempvar touse
@@ -25,13 +25,23 @@ program define did2s, eclass
         fvrevar `first_stage'
         local full_first_stage `r(varlist)'
 
-        * First stage regression (with clustering and weights)
-        qui reg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, nocons vce(cluster `cluster')
+        if ("`absorb'" != "") {
+            * First stage regression (with clustering and weights)
+            areg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, absorb(`absorb') vce(cluster `cluster')
+            tempvar du dummies adj
+            * areg does not save absorbed dummies out of sample, do that manually
+            predict double `du', dresiduals
+            egen double `dummies' = mean(`du') if `touse', by(`absorb')
+            generate double `adj' = `du' - `dummies'
+        }
+        else {
+            * First stage regression (with clustering and weights)
+            reg `varlist' `full_first_stage' [`weight'`exp'] if `touse' & `treat_var' == 0, nocons vce(cluster `cluster')
 
-        * Residualize outcome variable
-        tempvar adj
-        predict double `adj', residual
-
+            * Residualize outcome variable
+            tempvar adj
+            predict double `adj', residual
+        }
         **-> Get names of non-omitted variables
             * https://www.stata.com/support/faqs/programming/factor-variable-support/
             
@@ -65,7 +75,7 @@ program define did2s, eclass
         local full_second_stage `r(varlist)'
 
         * Second stage regression
-        qui reg `adj' `full_second_stage' [`weight'`exp'] if `touse', nocons vce(cluster `cluster')
+        reg `adj' `full_second_stage' [`weight'`exp'] if `touse', nocons vce(cluster `cluster')
 
         **-> Get names of non-omitted variables
             * https://www.stata.com/support/faqs/programming/factor-variable-support/
