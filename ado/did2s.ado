@@ -31,8 +31,8 @@ program define did2s, eclass
             tempvar du dummies adj
             * areg does not save absorbed dummies out of sample, do that manually
             predict double `du' if `touse', dresiduals
-            egen double `dummies' = mean(`du') if `touse', by(`absorb')
-            generate double `adj' = `du' - `dummies' if `touse'
+            qui egen double `dummies' = mean(cond(`treat_var'==0, `du', .)) if `touse', by(`absorb')
+            qui generate double `adj' = `du' - `dummies' if `touse'
             * FIXME: adjust standard errors
         }
         else {
@@ -76,7 +76,7 @@ program define did2s, eclass
         local full_second_stage `r(varlist)'
 
         * Second stage regression
-        reg `adj' `full_second_stage' [`weight'`exp'] if `touse', nocons vce(cluster `cluster')
+        qui reg `adj' `full_second_stage' [`weight'`exp'] if `touse', nocons vce(cluster `cluster')
 
         **-> Get names of non-omitted variables
             * https://www.stata.com/support/faqs/programming/factor-variable-support/
