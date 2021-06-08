@@ -41,7 +41,7 @@ program define did2s, eclass
 
             * Residualize outcome variable
             tempvar adj
-            predict double `adj' if `touse', residual
+            qui predict double `adj' if `touse', residual
         }
         **-> Get names of non-omitted variables
             * https://www.stata.com/support/faqs/programming/factor-variable-support/
@@ -105,7 +105,7 @@ program define did2s, eclass
 
         **-> Create first_u, with 0s in row where D_it = 1
         tempvar second_u
-        predict double `second_u' if `touse', residual 
+        qui predict double `second_u' if `touse', residual 
             
 
     *-> Standard Error Adjustment
